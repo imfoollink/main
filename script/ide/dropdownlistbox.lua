@@ -53,7 +53,8 @@ local dropdownlistbox = {
 	-- data
 	-- an array of text, one needs to call RefreshListBox() manually, if one changes the items after the list box is displayed for the first time.
 	-- items.values can be nil or a table mapping items name to item value. if items.values is nil, the GetValue() method will default to GetText().
-	items = {values=nil,}, 
+	items = {values=nil,},
+	font_size = 14,
 	text = "", -- current text
 	-- onchange event, it can be nil, a string to be executed or a function of type void ()(sCtrlName, item)
 	-- it will be called when the user select an item or pressed Enter in the editbox. One may call GetText() to retrieve text in the handler
@@ -116,6 +117,13 @@ function dropdownlistbox:Show(bShow)
 		-- create the editbox
 		local left, top, width, height = 0,0, 124, 32
 		_this=ParaUI.CreateUIObject("imeeditbox","s", "_mt",0,0,self.buttonwidth,self.height);
+
+		local font_family = "System";
+		local font_size = self.font_size;
+		local font_weight = "norm";
+		local font = string.format("%s;%d;%s", font_family, font_size, font_weight);
+		_this.font = font;
+
 		_parent:AddChild(_this);
 		self.editbox_id = _this.id;
 		_this.text=self.text;
@@ -291,7 +299,14 @@ function dropdownlistbox.OnClickDropDownButton(self)
 		_this=ParaUI.CreateUIObject("listbox","s","_fi",0,0,0,0);
 		if(self.listbox_bg~=nil) then
 			_this.background=self.listbox_bg;
-		end	
+		end
+
+		local font_family = "System";
+		local font_size = self.font_size;
+		local font_weight = "norm";
+		local font = string.format("%s;%d;%s", font_family, font_size, font_weight);
+		_this.font = font;
+
 		_parent:AddChild(_this);
 		self.listbox_id = _this.id;
 		_this:SetScript("onselect", function()

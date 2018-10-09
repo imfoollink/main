@@ -50,12 +50,14 @@ end
 
 local use_ffi = jit and jit.version 
 	-- skipping PARA_PLATFORM_IOS == 1, since iOS does not allow it right now.
-	and ParaEngine.GetAttributeObject():GetField("Platform", 0)~=1;
+	-- and ParaEngine.GetAttributeObject():GetField("Platform", 0)~=1
 	-- ffi is slow when jit is not enabled, so disable it for now. 
-	-- not ParaEngine.GetAttributeObject():GetField("IsMobilePlatform", false);
+	-- cellfy: and it will crash randomly on an android system higher than 6.0 with ffi enabled
+	and not ParaEngine.GetAttributeObject():GetField("IsMobilePlatform", false);
 
 -- debug version uses "lua_d.dll", so it is not jit enabled
 if(use_ffi) then
+	ParaGlobal.WriteToLogFile("--------------------ffi enabled--------------------\n");
 	ParaGlobal.WriteToLogFile(string.format("ParaEngine LuaJIT %s version:%s\r\n", str64BitsSystem, tostring(jit.version)));
 	local jit_status = {jit.status()};
 	jit_status[1] = tostring(jit_status[1]) or "";
@@ -181,7 +183,7 @@ if(use_ffi) then
 		local name = ParaEngine.GetAttributeObject():GetField("GetModuleFileName");
 		if(not name) then
 			-- backward compatibility if "GetModuleFileName" not exist. 
-			name = "ParaEngineClient";
+			name = "AwesomeTruck";
 			local is_debugging = ParaEngine.GetAttributeObject():GetField("Is Debugging", false);
 			if(is_debugging) then
 				name = name.."_d";
@@ -439,6 +441,7 @@ if(use_ffi) then
 		end
 	end
 else
+	ParaGlobal.WriteToLogFile("--------------------ffi disabled--------------------\n");
 	-- using standard lua without jit and ffi
 	ParaGlobal.WriteToLogFile(string.format("ParaEngine Lua %s version:%s\r\n", str64BitsSystem, tostring(_VERSION)));
 end

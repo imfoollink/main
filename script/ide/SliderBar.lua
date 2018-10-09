@@ -50,7 +50,10 @@ local SliderBar = {
 	-- appearance
 	background_margin_top = 0,
 	background_margin_bottom = 0,
+	background_margin_left = 0,
+	background_margin_right = 0,
 	background = "Texture/3DMapSystem/common/ThemeLightBlue/slider_background_16.png: 4 8 4 7",
+	highlighted_bg = nil,
 	button_bg = "Texture/3DMapSystem/common/ThemeLightBlue/slider_button_16.png",
 	-- default to button_bg
 	step_left_button_bg = nil,
@@ -121,10 +124,21 @@ function SliderBar:Show(bShow)
 		end
 		
 		-- create the background. 
-		_this = ParaUI.CreateUIObject("container","bg","_fi",0,self.background_margin_top or 0, if_else(self.IsShowEditor, self.editor_width, 0), self.background_margin_bottom or 0);
+		_this = ParaUI.CreateUIObject("container","bg","_fi",self.background_margin_left or 0, self.background_margin_top or 0, if_else(self.IsShowEditor, self.editor_width + (self.background_margin_right or 0), self.background_margin_right or 0), self.background_margin_bottom or 0);
 		_this.background = self.background;
 		_this.enabled = false;
 		_parent:AddChild(_this);
+
+		if(self.highlighted_bg) then
+			if(self.direction=="horizontal" or self.width>self.height) then
+				_this = ParaUI.CreateUIObject("container","hl_bg","_ml", self.background_margin_left or 0, self.background_margin_top or 0, 0, self.background_margin_bottom or 0);
+			else
+				_this = ParaUI.CreateUIObject("container","hl_bg","_mt", self.background_margin_left or 0, self.background_margin_top or 0, if_else(self.IsShowEditor, self.editor_width + (self.background_margin_right or 0), self.background_margin_right or 0), 0);
+			end
+			_this.background = self.highlighted_bg;
+			_this.enabled = false;
+			_parent:AddChild(_this);
+		end
 		
 		if(self.IsShowEditor) then
 			_this = ParaUI.CreateUIObject("editbox","editor","_rt",-self.editor_width,0,self.editor_width,self.height);
@@ -184,6 +198,7 @@ end
 function SliderBar:UpdateUI()
 	local _this = ParaUI.GetUIObject(self.name);
 	if(_this:IsValid() == true) then
+		local hl_bg = _this:GetChild("hl_bg")
 		local btn = _this:GetChild("b");
 		if(btn:IsValid())then
 			local _,_, width, height = _this:GetAbsPosition();
@@ -195,10 +210,14 @@ function SliderBar:UpdateUI()
 				-- horizontal slider bar
 				btn.x = (self.value-self.min)/(self.max-self.min)*(width-self.button_width);
 				btn.y = (height-self.button_height)/2
+				-- highlighted bg
+				hl_bg.width = btn.x + self.button_width/2;
 			else
 				-- vertical slider bar
 				btn.x = (width-self.button_width)/2
 				btn.y = (self.value-self.min)/(self.max-self.min)*(height-self.button_height);
+				-- highlighted bg
+				hl_bg.height = btn.y + self.button_height/2;
 			end
 			if(self.IsShowEditor) then
 				local editor = _this:GetChild("editor");

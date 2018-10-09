@@ -147,6 +147,54 @@ function _guihelper.SetVistaStyleButton3(uiobject, normalImage, mouseoverImage, 
 	end
 end
 
+-- NOTE: by ted: modified by _guihelper.SetVistaStyleButton3(), can only provide normal and pressed img
+function _guihelper.SetVistaStyleButton3_2(uiobject, normalImage, mouseoverImage, disableImage, pressedImage)
+	if(uiobject~=nil and uiobject:IsValid())then
+		local texture;
+		
+		if(normalImage ~= nil) then
+			
+			uiobject:SetActiveLayer("artwork");
+			
+			-- tricky code: this ensures the layer type from 9 tile to 0 tile.
+			uiobject.background = normalImage; 
+			
+			if(mouseoverImage) then
+				uiobject:SetCurrentState("highlight");
+				uiobject:GetTexture(nil).texture = mouseoverImage;
+				uiobject.color="255 255 255";
+			else
+				uiobject:SetCurrentState("highlight");
+				uiobject:GetTexture(nil).texture = normalImage;
+				uiobject.color="255 255 255";
+			end	
+			if(pressedImage) then
+				uiobject:SetCurrentState("pressed");
+				uiobject:GetTexture(nil).texture = pressedImage;
+				uiobject.color="255 255 255";
+			else
+				uiobject:SetCurrentState("pressed");
+				uiobject:GetTexture(nil).texture = normalImage;
+				uiobject.color="200 200 200";
+			end	
+			if(disableImage) then
+				uiobject:SetCurrentState("disabled");
+				uiobject:GetTexture(nil).texture = disableImage;
+				uiobject.color="255 255 255";
+			else
+				uiobject:SetCurrentState("disabled");
+				uiobject:GetTexture(nil).texture = normalImage;
+				uiobject.color="160 160 160";
+			end	
+			uiobject:SetCurrentState("normal");
+			uiobject:GetTexture(nil).texture = normalImage;
+			uiobject.color="230 230 230";
+			
+			-- uiobject:SetActiveLayer("artwork");
+		end
+	end
+end
+
 -- NOTE: by andy: this is another solution of _guihelper.SetVistaStyleButton
 --		the difference is this function swap the SetVistaStyleButton2 background and foreground color behavior
 -- make a button Windows Vista Style buttons, like the left top menu item in MS Office 2007.

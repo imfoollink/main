@@ -45,8 +45,10 @@ CommonCtrl.Canvas3D.IsMouseDown
 
 -- common control library
 NPL.load("(gl)script/ide/common_control.lua");
-
+NPL.load("(gl)script/ide/math/vector.lua");
 NPL.load("(gl)script/ide/CanvasCamConfig.lua");
+
+local vector3d = commonlib.gettable("mathlib.vector3d");
 local CanvasCamConfig = commonlib.gettable("MyCompany.Aries.CanvasCamConfig");
 
 
@@ -308,6 +310,7 @@ function Canvas3D:ShowModel(obj, bAutoAdjustCamera)
 		bAutoAdjustCamera = true;
 	end
 
+	local obj_params = obj;
 	if(type(obj) == "table") then
 		obj = ObjEditor.CreateObjectByParams(obj);
 	end
@@ -348,6 +351,7 @@ function Canvas3D:ShowModel(obj, bAutoAdjustCamera)
 		-- init render target
 		------------------------------------
 		-- set size
+		self:SetRenderTargetSize(self.RenderTargetSize, self.RenderTargetSize);
 		if(self.RenderTargetSize == nil) then
 			scene:SetRenderTargetSize(128, 128);
 		else
@@ -409,12 +413,9 @@ function Canvas3D:ShowModel(obj, bAutoAdjustCamera)
 		if(not self.ExternalSceneName) then
 			local asset = obj:GetPrimaryAsset();
 			if(asset:IsValid())then
-				local bb = {min_x = -0.5, max_x=0.5, min_y = -0.5, max_y=0.5,min_z = -0.5, max_z=0.5,};
+				local bb = {min_x = -0.5, max_x=0.5, min_y = -1001.5, max_y=-1000.5,min_z = -0.5, max_z=0.5,};
 				local scale = obj:GetScale();
-				if(asset:IsLoaded() or (self.LookAtHeight and self.DefaultCameraObjectDist))then
-					bb = asset:GetBoundingBox(bb);
-					bb = ScaleBoundingBox(bb, scale);
-				elseif(bAutoAdjustCamera) then
+				if(bAutoAdjustCamera) then
 					-- we shall start a timer, to refresh the bounding box once the asset is loaded. 	
 					NPL.load("(gl)script/ide/AssetPreloader.lua");
 					self.loader = self.loader or commonlib.AssetPreloader:new({
@@ -431,7 +432,7 @@ function Canvas3D:ShowModel(obj, bAutoAdjustCamera)
 									if(camInfo~=nil)then
 										self:AdjustCamera(camInfo,bb,self.scale_ or 1);
 									else
-										self:AutoAdjustCameraByBoundingBox(bb);
+										self:AutoAdjustCameraByBoundingBox(bb, obj_params.facing);
 									end
 									self.asset_ = nil;
 								end	
@@ -443,6 +444,9 @@ function Canvas3D:ShowModel(obj, bAutoAdjustCamera)
 					self.asset_ = asset
 					self.scale_ = scale;
 					self.loader:Start();
+				elseif(asset:IsLoaded() or (self.LookAtHeight and self.DefaultCameraObjectDist))then
+					bb = asset:GetBoundingBox(bb);
+					bb = ScaleBoundingBox(bb, scale);
 				end	
 
 				if(bAutoAdjustCamera and not self.ExternalSceneName) then
@@ -450,8 +454,8 @@ function Canvas3D:ShowModel(obj, bAutoAdjustCamera)
 					local camInfo = CanvasCamConfig.QueryCamInfo(key_filename,self.cameraName);
 					if(camInfo~=nil)then
 						self:AdjustCamera(camInfo,bb,scale);
-					else					
-						self:AutoAdjustCameraByBoundingBox(bb);
+					else
+						self:AutoAdjustCameraByBoundingBox(bb, obj_params.facing);
 					end
 				end	
 			end
@@ -493,10 +497,11 @@ end
 
 -- adjust the bounding box so that the camera can best view a given bounding box. 
 -- @param bb: the bounding box {min_x = -0.5, max_x=0.5, min_y = -0.5, max_y=0.5,min_z = -0.5, max_z=0.5,} to be contained in the view. 
-function Canvas3D:AutoAdjustCameraByBoundingBox(bb)
+function Canvas3D:AutoAdjustCameraByBoundingBox(bb, obj_facing)
 	if(ParaUI.GetUIObject(self.name):IsValid() == false) then
 		return
 	end
+	obj_facing = obj_facing or 0;
 	if(self.resourceName and not self.ExternalSceneName) then
 		local scene = ParaScene.GetMiniSceneGraph(self.resourceName);
 		
@@ -506,7 +511,11 @@ function Canvas3D:AutoAdjustCameraByBoundingBox(bb)
 			if(dist == 0) then
 				dist = 3;
 			end
-			scene:CameraSetLookAtPos(0,self.LookAtHeight or (bb.max_y + bb.min_y)*0.618,0);
+
+			local model_center = vector3d:new((bb.min_x+bb.max_x)*0.5,0,(bb.min_z+bb.max_z)*0.5);
+			model_center:rotate(0, obj_facing, 0);
+
+			scene:CameraSetLookAtPos(model_center[1], self.LookAtHeight or (bb.max_y + bb.min_y)*0.5, model_center[3]);
 			--[[ 
 			local cameradist = (dist+2);
 			if(dist < 0.5) then
@@ -516,11 +525,11 @@ function Canvas3D:AutoAdjustCameraByBoundingBox(bb)
 			elseif(dist > 10) then
 				cameradist = dist*2;
 			end]]
-			local cameradist = math.max(z,y,0.5)*1.2 + math.max(x,z) * 0.5 + 0.5; -- x or z is the depth
+			local cameradist = math.max(z,y,x)*2.1 + math.max(x,z)*0.5 +  0.8; -- x or z is the depth
 			if(cameradist < self.minZoomDist) then
 				cameradist = self.minZoomDist;
 			end
-			scene:CameraSetEyePosByAngle(self.DefaultRotY or 2.7, self.DefaultLiftupAngle or 0.3, self.DefaultCameraObjectDist or cameradist);
+			scene:CameraSetEyePosByAngle(self.DefaultRotY or 2.7, self.DefaultLiftupAngle or 0.3, cameradist or self.DefaultCameraObjectDist);
 			self.maxZoomDist = math.max(cameradist*3+self.minZoomDist, self.maxZoomDist or 0);
 		end	
 	end

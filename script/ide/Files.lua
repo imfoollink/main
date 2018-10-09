@@ -104,7 +104,9 @@ function Files.Find(output, rootfolder,nMaxFileLevels, nMaxFilesNum, filter, zip
 	
 	output = output or {};
 	local sInitDir;
-	if((not zipfile or zipfile == "") and not Files.IsAbsolutePath(rootfolder)) then
+	-- mobile version must not append ParaIO.GetCurDirectory(0) to InitDir.
+	local isMobile = (System.options and System.options.IsMobilePlatform);
+	if((not zipfile or zipfile == "") and not Files.IsAbsolutePath(rootfolder)) and not isMobile then
 		sInitDir = ParaIO.GetCurDirectory(0)..rootfolder;
 	else
 		sInitDir = rootfolder;

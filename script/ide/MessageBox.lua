@@ -19,7 +19,7 @@ _guihelper.MessageBox("Hello ParaEngine!", function(res)
 	end
 end, _guihelper.MessageBoxButtons.YesNo);
 
-_guihelper.MessageBox_Plain("Did you press OK?", function(res)
+	_guihelper.MessageBox_Plain("Did you press OK?", function(res)
 	if(res and res == _guihelper.DialogResult.OK) then
 		-- pressed OK
 	end
@@ -42,6 +42,8 @@ _guihelper.MessageBox("<div style='color:#0000ff'>MCML code here</div>",nil, _gu
 ------------------------------------------------------
 ]]
 
+local lMessageBoxStack={};
+
 local L;
 if(CommonCtrl.Locale) then
 	L = CommonCtrl.Locale("IDE");
@@ -50,8 +52,28 @@ else
 end
 
 NPL.load("(gl)script/ide/UIAnim/UIAnimManager.lua");
+NPL.load("(gl)script/ide/AudioEngine/AudioEngine.lua");
+NPL.load("(gl)script/Truck/Utility/UIUtility.lua");
+
+local AudioEngine = commonlib.gettable("AudioEngine");
 
 if(_guihelper==nil) then _guihelper={} end
+
+_guihelper.bg_style = 0; -- 0. use for common window   1. with title top   2. given title top   3. givin title middle  4. friend system box
+
+function _guihelper.get_bg_with_hint()
+	-- return UIUtility.GetMCMLStandardImageDescription("gameassets/textures/ui_15_messagebox/MessageBoxUI.png","5.png"); -- with hint
+	return ""
+end
+function _guihelper.get_bg_without_hint()
+	-- return UIUtility.GetMCMLStandardImageDescription("gameassets/textures/ui_15_messagebox/MessageBoxUI.png","2.png"); -- with hint
+	return ""
+end
+
+_guihelper.title_icon = nil; -- given title icon
+--_guihelper.title_icon = "Truck/createNewPlanet2048x2048_32bits.png;345 1690 258 35";
+_guihelper.title_icon_width = 258;
+_guihelper.title_icon_height = 35;
 
 ---------------------------------------------------------------
 -- message box (top level)
@@ -171,13 +193,17 @@ display a message box based on MCML template.
 @param mcmlTemplate: if nil, it default to "script/ide/styles/DefaultMessageBox.html"
 @return true if created. or nil if there is a previous MessageBox that has not been closed. 
 ]]
-function _guihelper.MessageBox(content,MsgBoxClick_CallBack, buttons, icon, mcmlTemplate, isNotTopLevel, zorder)
+function _guihelper.MessageBox(content,MsgBoxClick_CallBack, buttons, icon, mcmlTemplate, isNotTopLevel, zorder, unstackGroupID, isPop)
 	if(not content) then
 		_guihelper.CloseMessageBox();
 		return true;
 	end
 	if(type(content)~="string") then
 		content = commonlib.serialize(content);
+	end
+
+	if(_guihelper.bg_style == 0) then
+		_guihelper.bg_style = 1;
 	end
 
 	local bPlayAnimation = true;		
@@ -208,9 +234,9 @@ function _guihelper.MessageBox(content,MsgBoxClick_CallBack, buttons, icon, mcml
 		_this.zorder = zorder;
 	end
 	
-	local width, height = 370, 250;
+	local width, height = 866, 600;
 	if(System and System.options and System.options.IsMobilePlatform and System.options.mc) then
-		width, height = 590, 320;
+		width, height = 866, 600;
 	end
 	if(type(mcmlTemplate) ~= "string") then
 		mcmlTemplate = _guihelper.defaultMsgBoxMCMLTemplate;
@@ -232,7 +258,7 @@ function _guihelper.MessageBox(content,MsgBoxClick_CallBack, buttons, icon, mcml
 	if(Map3DSystem.options.IsMobilePlatform) then
 		pageCtrl:Create("IDE_HELPER_MSGBOX_PANEL", _this, "_ct",-width/2,-height/2,width, height);
 	else
-		pageCtrl:Create("IDE_HELPER_MSGBOX_PANEL", _this, "_ct",-width/2,-height/2-50,width+80, height);
+		pageCtrl:Create("IDE_HELPER_MSGBOX_PANEL", _this, "_ct",-width/2,-height/2-50,width, height);
 	end
 	
 	_guihelper.values.IsInitialized = true; -- tricky: this causes the content to be evaluated only once. 
@@ -248,7 +274,19 @@ function _guihelper.MessageBox(content,MsgBoxClick_CallBack, buttons, icon, mcml
 	if(Map3DSystem~=nil and Map3DSystem.PushState~=nil) then
 		Map3DSystem.PushState({name = "MessageBox", OnEscKey = "_guihelper.OnMessageBoxClick(\"Cancel\");"});
 	end
-	
+	if not isPop then
+    if unstackGroupID then
+      local index=1;
+      for i=1,#lMessageBoxStack do
+        if lMessageBoxStack[index][8]==unstackGroupID then
+          table.remove(lMessageBoxStack,index);
+        else
+          index=index+1;
+        end
+      end
+    end
+    table.insert(lMessageBoxStack,{content,MsgBoxClick_CallBack, buttons, icon, mcmlTemplate, isNotTopLevel, zorder, unstackGroupID});
+  end
 	return true;
 end
 
@@ -259,6 +297,7 @@ end
 
 -- Message Box. 
 function _guihelper.OnMessageBoxClick(name)
+	AudioEngine.PlayUISound("btn_show");
 	_guihelper.CloseMessageBox()
 	local dialogResult;
 	if(type(name) == "string") then
@@ -312,7 +351,10 @@ _guihelper.MsgBoxClick_CallBack = nil;
 local LastDestroyedWindowID;
 -- close the messagebox 
 -- @param bForceDestory: if true, no animation will be played. 
-function _guihelper.CloseMessageBox(bForceDestory)
+function _guihelper.CloseMessageBox(bForceDestory)  
+	_guihelper.bg_style = 0;
+	_guihelper.title_icon = nil;
+
 	if(Map3DSystem~=nil and Map3DSystem.GetState~=nil) then
 		local state = Map3DSystem.GetState();
 		if(type(state) == "table" and state.name=="MessageBox") then
@@ -354,6 +396,12 @@ function _guihelper.CloseMessageBox(bForceDestory)
 		UIAnimManager.PlayDirectUIAnimation(block);
 	end
 	LastParentWindowID = nil;
+  
+  table.remove(lMessageBoxStack);
+  if #lMessageBoxStack>0 then
+    local message_box=lMessageBoxStack[#lMessageBoxStack];
+    _guihelper.MessageBox(message_box[1],message_box[2],message_box[3],message_box[4],message_box[5],message_box[6],message_box[7],message_box[8],true);
+  end
 end
 
 ---------------------------------------------
