@@ -38,4 +38,6 @@ Documentation/*
 !/script/kids/3DMapSystemApp/DebugApp/
 !/script/kids/3DMapSystemApp/localserver/
 
+# added in truck
+.DS_Store
 
