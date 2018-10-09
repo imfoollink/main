@@ -84,6 +84,7 @@ if it is "_mcmlblank", it will be opened in a new popup mcml window.
 | css.lineheight | line height for multiline text. |
 | spacing	| for text or button control.  |
 | UseSystemControl | true to use advanced multiple line edit box in new system control |
+| InputMethodEnabled | only valid when UseSystemControl is true. default to true |
 use the lib:
 -------------------------------------------------------
 NPL.load("(gl)script/kids/3DMapSystemApp/mcml/pe_editor.lua");
@@ -724,6 +725,9 @@ function pe_editor_button.create(rootName, mcmlNode, bindingContext, _parent, le
 			_guihelper.SetVistaStyleButton3(_this, normal_bg, mouseover_bg, disabled_bg, pressed_bg);
 		elseif(normal_bg and mouseover_bg and pressed_bg == nil) then
 			_guihelper.SetVistaStyleButton3(_this, normal_bg, mouseover_bg, disabled_bg, nil);
+		-- can only provide normal and pressed img
+		elseif(normal_bg and mouseover_bg == nil and pressed_bg) then
+			_guihelper.SetVistaStyleButton3_2(_this, normal_bg, nil, disabled_bg, pressed_bg);
 		end
 		if(css["background-color"]) then
 			_guihelper.SetUIColor(_this, css["background-color"]);
@@ -1322,6 +1326,7 @@ function pe_editor_text.create(rootName, mcmlNode, bindingContext, _parent, left
 			bUseSystemControl = mcmlNode:GetBool("UseSystemControl"),
 			language = mcmlNode:GetAttributeWithCode("language", nil),
 			AlwaysShowCurLineBackground = mcmlNode:GetBool("AlwaysShowCurLineBackground", true),
+			InputMethodEnabled = mcmlNode:GetBool("enable_ime", true),
 		};
 		local onkeyup = mcmlNode:GetString("onkeyup");
 		if(onkeyup)then
@@ -1376,7 +1381,7 @@ function pe_editor_text.create(rootName, mcmlNode, bindingContext, _parent, left
 		end
 		mcmlNode.uiobject_id = _this.id;
 
-		if(System.options.IsMobilePlatform and css and (css["font-family"] or css["font-size"] or css["font-weight"]))then
+		if(css and (css["font-family"] or css["font-size"] or css["font-weight"]))then
 			local font_family = css["font-family"] or "System";
 			-- this is tricky. we convert font size to integer, and we will use scale if font size is either too big or too small. 
 			local font_size = math.floor(tonumber(css["font-size"] or 12));

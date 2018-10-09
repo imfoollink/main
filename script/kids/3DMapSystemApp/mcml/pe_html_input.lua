@@ -792,8 +792,9 @@ function pe_select.create(rootName, mcmlNode, bindingContext, _parent, left, top
 	local css = mcmlNode:GetStyle(Map3DSystem.mcml_controls.pe_html.css["input-select"]);
 	local margin_left, margin_top, margin_bottom, margin_right = 
 		(css["margin-left"] or css["margin"] or 0),(css["margin-top"] or css["margin"] or 0),
-		(css["margin-bottom"] or css["margin"] or 0),(css["margin-right"] or css["margin"] or 0);	
-		
+		(css["margin-bottom"] or css["margin"] or 0),(css["margin-right"] or css["margin"] or 0);
+
+	local font_size = css["font-size"] or 14;
 	local left, top, width, height = parentLayout:GetPreferredRect();
 	width, height  = width-left-margin_left-margin_right, (css.lineheight or 20)*rows;
 	if(css.width and css.width<width) then
@@ -870,6 +871,7 @@ function pe_select.create(rootName, mcmlNode, bindingContext, _parent, left, top
 			dropdownbutton_width = pe_select.dropdownbutton_width,
 			dropdownbutton_height = pe_select.dropdownbutton_height,
 			items = items,
+			font_size = font_size,
 			text = selected_text,
 			AllowUserEdit = mcmlNode:GetBool("AllowUserEdit"),
 			IsReadonly = mcmlNode:GetBool("IsReadonly"),

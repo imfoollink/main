@@ -92,6 +92,16 @@ NPL.load("(gl)script/kids/3DMapSystemApp/mcml/PageCtrl.lua");
 -- create class
 local WebBrowser = commonlib.gettable("Map3DSystem.App.WebBrowser");
 
+local scaling_attr = {
+	["x"] = true,
+	["y"] = true,
+	["width"] = true,
+	["height"] = true,
+	["VerticalScrollBarOffsetX"] = true,
+	["VerticalScrollBarWidth"] = true,
+	["VerticalScrollBarStep"] = true,
+};
+
 -------------------------------------------
 -- event handlers
 -------------------------------------------
@@ -352,6 +362,18 @@ function Map3DSystem.App.WebBrowser.OnExec(app, commandName, params)
 		if(type(params) ~= "table" or not params.name) then	
 			log("warning: File.MCMLWindowFrame command must have input of a table or name field is nonexistent\n")
 			return;
+		end
+		if UIUtility.NeedScale() then
+			for param_k, param_v in pairs(params) do
+				if scaling_attr[param_k] then
+					local param_v_num = tonumber(param_v);
+					if param_v_num then
+						params[param_k] = UIUtility.AutoScale(param_v_num);
+					else
+						LOG.std(nil, "error", "truckstar", "can not find a valid number when a window attribute value should be scaled: %s", param_k);
+					end
+				end
+			end
 		end
 		if(params.bAutoSize or params.bAutoWidth or params.bAutoHeight) then
 			if(params.cancelShowAnimation== nil) then

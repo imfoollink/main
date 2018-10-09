@@ -28,6 +28,8 @@ end
 NPL.load("(gl)script/ide/System/localserver/UrlHelper.lua");
 NPL.load("(gl)script/kids/3DMapSystemApp/mcml/StyleItem.lua");
 local StyleItem = commonlib.gettable("Map3DSystem.mcml_controls.StyleItem");
+NPL.load("(gl)script/Truck/Utility/UIUtility.lua");
+
 local pe_css = commonlib.gettable("Map3DSystem.mcml_controls.pe_css");
 
 if(not Map3DSystem.mcml) then Map3DSystem.mcml = {} end
@@ -51,6 +53,9 @@ local CommonCtrl = commonlib.gettable("CommonCtrl");
 local NameNodeMap_ = {};
 local commonlib = commonlib.gettable("commonlib");
 local pe_html = commonlib.gettable("Map3DSystem.mcml_controls.pe_html");
+
+local UITextureListReader = commonlib.gettable("Mod.Truck.Config.UITextureListReader");
+
 ----------------------------
 -- helper functions
 ----------------------------
@@ -133,6 +138,80 @@ mcml.baseNode = {
 	index = 1,
 }
 
+local scaling_fields = {
+	["height"] = true,
+	["min-height"] = true,
+	["max-height"] = true,
+	["width"] = true,
+	["min-width"] = true,
+	["max-width"] = true,
+	["left"] = true,
+	["top"] = true,
+	["font-size"] = true,
+	["spacing"] = true,
+	["base-font-size"] = true,
+};
+
+local scaling_attr = {
+	--pe:treeview
+	["DefaultNodeWidth"] = true,
+	["DefaultNodeHeight"] = true,
+	["CellPadding"] = true,
+	["LineWidth"] = true,
+	["ScrollBarTrackWidth"] = true,
+	["VerticalScrollBarOffsetX"] = true,
+	["VerticalScrollBarWidth"] = true,
+	["VerticalScrollBarStep"] = true,
+	--pe:sliderbar
+	["min"] = true;
+	["max"] = true;
+	["min_step"] = true;
+	["button_width"] = true,
+	["button_height"] = true,
+	["background_margin_top"] = true;
+	["background_margin_bottom"] = true;
+	["background_margin_left"] = true;
+	["background_margin_right"] = true;
+	--canvas 3d
+	["RenderTargetSize"] = true,
+};
+
+-- cellfy: scale given value by specified scaling function
+local function _ScaleAttribute(attrName, originalValue, scaleFunc)
+	if originalValue and type(scaleFunc)=="function" then
+		local _, _, org_value_str = string_find(originalValue, "([%+%-]?%d+)");
+		if org_value_str then
+			local scaled_value_str = tostring(scaleFunc(tonumber(org_value_str)));
+			--in case of a non-zero value being scaled to zero
+			if tonumber(org_value_str) and tonumber(org_value_str)>0 and scaled_value_str=="0" then
+				scaled_value_str="1";
+			end
+			local org_value_str_escaped = string_gsub(org_value_str, "%-", "%%-");
+			local scaled_attr = string_gsub(originalValue, org_value_str_escaped, scaled_value_str);
+			return scaled_attr;
+		else
+			LOG.std(nil, "error", "truckstar", "can not find a valid number when a ui attribute value should be scaled: %s", attrName);
+			return originalValue;
+		end
+	else
+		LOG.std(nil, "debug", "truckstar", "param error in _ScaleAttribute: %s : %s", attrName, originalValue);
+		return originalValue
+	end
+end
+
+-- cellfy: read attribute and scale it if applicable
+local function _ReadAttribute(self, attrName, defaultValue)
+	if self.attr and self.attr[attrName] then
+		if(scaling_attr[attrName]) then
+			return _ScaleAttribute(attrName, self.attr[attrName], UIUtility.AutoScale);
+		else
+			return self.attr[attrName];
+		end
+	else
+		return defaultValue;
+	end
+end
+
 -- return a copy of this object, everything is cloned including the parent and index of its child node. 
 function mcml.baseNode:clone()
 	local o = mcml.new(nil, {name = self.name})
@@ -164,7 +243,11 @@ end
 -- set the value of an attribute of this node. This function is rarely used. 
 function mcml.baseNode:SetAttribute(attrName, value)
 	self.attr = self.attr or {};
-	self.attr[attrName] = value;
+	if(scaling_attr[attrName]) then
+		self.attr[attrName]= _ScaleAttribute(attrName, value, UIUtility.AntiAutoScale);
+	else
+		self.attr[attrName] = value;
+	end
 	if(attrName == "style") then
 		-- tricky code: since we will cache style table on the node, we need to delete the cached style when it is changed. 
 		self.style = nil;
@@ -178,7 +261,11 @@ function mcml.baseNode:SetAttributeIfNotCode(attrName, value)
 	if(type(old_value) == "string") then
 		local code = string_match(old_value, "^[<%%]%%(=.*)%%[%%>]$")
 		if(not code) then
-			self.attr[attrName] = value;
+			if(scaling_attr[attrName]) then
+				self.attr[attrName]= _ScaleAttribute(attrName, value, UIUtility.AntiAutoScale);
+			else
+				self.attr[attrName] = value;
+			end
 		end
 	else
 		self.attr[attrName] = value;
@@ -187,12 +274,33 @@ end
 
 -- get the value of an attribute of this node as its original format (usually string)
 function mcml.baseNode:GetAttribute(attrName,defaultValue)
-	if(self.attr) then
-		return self.attr[attrName];
-	end
-	return defaultValue;
+	return _ReadAttribute(self, attrName, defaultValue);
 end
 
+local function TryAutoScaleStyle(styleCode)
+	if UIUtility.NeedScale() then
+		local value = styleCode;
+		local change_count = 0;
+		local clone_value = value;
+		local style_item_name, style_item_value;
+		for org_item_name, org_item_value in string.gfind(value, "([%w%-]+)%s*:%s*([^;]*)[;]?") do
+			style_item_name = string_lower(org_item_name);
+			style_item_value = string_gsub(org_item_value, "%s*$", "");
+			if(scaling_fields[style_item_name] or string_find(style_item_name,"^margin") or string_find(style_item_name,"^padding")) then
+				local _, _, selfvalue = string_find(style_item_value, "([%+%-]?%d+)");
+				if(selfvalue~=nil) then
+					style_item_value = UIUtility.AutoScale(tonumber(selfvalue));
+					style_item_name = string_gsub(org_item_name, "%-", "%%-");
+					clone_value, __n = string_gsub(clone_value, style_item_name.."%s*:%s*"..org_item_value, org_item_name..":"..style_item_value.."px");
+					change_count = change_count+__n;
+				end
+			end
+		end
+		return clone_value, change_count;
+	else
+		return styleCode, 0;
+	end
+end
 -- get the value of an attribute of this node (usually string)
 -- this differs from GetAttribute() in that the attribute string may contain embedded code block which may evaluates to a different string, table or even function. 
 -- please note that only the first call of this method will evaluate embedded code block, subsequent calls simply return the previous evaluated result. 
@@ -201,11 +309,59 @@ end
 -- e.g. attrName='<%="string"+Eval("index")}%>' attrName1='<%={fieldname="table"}%>'
 function mcml.baseNode:GetAttributeWithCode(attrName,defaultValue, bNoOverwrite)
 	if(self.attr) then
-		local value = self.attr[attrName];
+		local value = _ReadAttribute(self, attrName, defaultValue);
 		if(type(value) == "string") then
 			local code = string_match(value, "^[<%%]%%(=.*)%%[%%>]$")
+
+			--Cellfy: truck customization
+			if(attrName == "style") and not code then
+				value = TryAutoScaleStyle(value);
+			end
+			if(string_match(value, ".*texpack[%d*]?:addr[_%w]*%((.*)%).*")) then
+				local addr_type = string_gsub(value, ".*texpack[%d*]?:addr([_%w]*)%((.*)%).*", "%1");
+				local image_desc = string_gsub(value, "(.*)addr[_%w]*%((.*)%)(.*)", "%2");
+				local packname, texname = string_match(image_desc, "(.*)%s*%->%s*(.*)")
+				local image_std = "";
+				local addr_type_key, b_localize = string_match(addr_type, "(.*)(_TL)");
+				local func_GetTexture2DFile = UITextureListReader.GetTexture2DFile;
+				if b_localize then
+					addr_type = addr_type_key;
+					func_GetTexture2DFile = UITextureListReader.GetLocalizedTexture2DFile;
+				end
+				if addr_type == "_simple" then
+					image_std = UIUtility.GetMCMLStandardImageDescription(packname, texname);
+				elseif addr_type == "_simple_by_id" then
+					packname = func_GetTexture2DFile(packname);
+					image_std = UIUtility.GetMCMLStandardImageDescription(packname, texname);
+				elseif addr_type == "_by_id" then
+					packname = func_GetTexture2DFile(packname);
+					image_std = UIUtility.GetMCMLStandardImageDescription(packname, texname, "#");
+					local widthX, heightY = UIUtility.GetTextureDimension(packname, texname)
+					image_std = "width:"..UIUtility.AutoScale(widthX).."px;height:"..UIUtility.AutoScale(heightY).."px;background:url("..image_std..")";					
+				else
+					image_std = UIUtility.GetMCMLStandardImageDescription(packname, texname, "#");
+					local widthX, heightY = UIUtility.GetTextureDimension(packname, texname)
+					image_std = "width:"..UIUtility.AutoScale(widthX).."px;height:"..UIUtility.AutoScale(heightY).."px;background:url("..image_std..")";
+				end
+				value = string_gsub(value, "texpack[%d*]?:addr[_%w]*%((.*)%)", image_std);
+			elseif(string_match(value, ".*texpack[%d*]?:dimension[_%w]*%((.*)%).*")) then
+				local addr_type = string_gsub(value, ".*texpack[%d*]?:dimension([_%w]*)%((.*)%).*", "%1");
+				local image_desc = string_gsub(value, "(.*)dimension[_%w]*%((.*)%)(.*)", "%2");
+				local packname, texname = string_match(image_desc, "(.*)%s*%->%s*(.*)")
+				if addr_type == "_by_id" then
+					packname = UITextureListReader.GetTexture2DFile(packname);
+				end
+				local widthX, heightY = UIUtility.GetTextureDimension(packname, texname);
+				local image_std = "width:"..UIUtility.AutoScale(widthX).."px;height:"..UIUtility.AutoScale(heightY);
+				value = string_gsub(value, "texpack[%d*]?:dimension[_%w]*%((.*)%)", image_std);
+			end
+			--Cellfy: end truck customization
+			
 			if(code) then
 				value = mcml_controls.pe_script.DoPageCode(code, self:GetPageCtrl());
+				if(attrName == "style") then
+					value = TryAutoScaleStyle(value);
+				end
 				if(not bNoOverwrite) then
 					self.attr[attrName] = value;
 				end	
@@ -221,28 +377,18 @@ end
 
 -- get an attribute as string
 function mcml.baseNode:GetString(attrName,defaultValue)
-	if(self.attr) then
-		return self.attr[attrName];
-	end
-	return defaultValue;
+	return _ReadAttribute(self, attrName, defaultValue);
 end
 
 -- get an attribute as number
 function mcml.baseNode:GetNumber(attrName,defaultValue)
-	if(self.attr) then
-		return tonumber(self.attr[attrName]);
-	end
-	return defaultValue;
+	return tonumber(_ReadAttribute(self, attrName, defaultValue));
 end
 
 -- get an attribute as integer
 function mcml.baseNode:GetInt(attrName, defaultValue)
-	if(self.attr) then
-		return math.floor(tonumber(self.attr[attrName]));
-	end
-	return defaultValue;
+	return math.floor(tonumber(_ReadAttribute(self, attrName, defaultValue)));
 end
-
 
 -- get an attribute as boolean
 function mcml.baseNode:GetBool(attrName, defaultValue)
