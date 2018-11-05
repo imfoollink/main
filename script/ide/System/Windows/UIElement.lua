@@ -83,6 +83,7 @@ UIElement:Property({"mouseTracking", nil, "hasMouseTracking", "setMouseTracking"
 UIElement:Property({"render_priority", 0, auto=true});
 
 UIElement:Property({"clip", false, "IsClip", "SetClip", auto=true});
+UIElement:Property({"InputMethodEnabled", true, "IsInputMethodEnabled", "SetInputMethodEnabled", auto=true});
 
 -- number of posted events
 UIElement.postedEvents = 0;
@@ -127,17 +128,8 @@ end
 function UIElement:ApplyCss(css)
 	if(css["background-color"]) then
 		self:SetBackgroundColor(css["background-color"]);
---		if(not css.background) then
---			self:SetBackground("Texture/whitedot.png");
---		end
 	end	
 	if(css.background) then
-		local bkcolor = self:GetBackgroundColor();
-		if(bkcolor and string.match(bkcolor,"#%x%x%x%x%x%x00")) then
-			-- if background color alpha is 0(0 - 1),then set background color white("#ffffff")
-			-- 如果背景色为全透明，那么设置背景色为白色（#ffffff）
-			self:SetBackgroundColor("#ffffff");
-		end
 		self:SetBackground(css.background);
 	end
 end
@@ -565,7 +557,7 @@ function UIElement:drawWidget(painterContext, offset)
 	if (not self:updatesEnabled() or self:isHidden()) then
 		return;
 	end
-	if(self._page_element and self._page_element:isHidden()) then
+	if(self:PageElement() and self:PageElement():isHidden()) then
 		return;
 	end
 	-- update the "in paint event" flag
@@ -645,10 +637,16 @@ end
 
 -- virtual: 
 function UIElement:focusInEvent(event)
+	if(self:PageElement()) then
+		self:PageElement():FocusInEvent();
+	end
 end
 
 -- virtual: 
 function UIElement:focusOutEvent(event)
+	if(self:PageElement()) then
+		self:PageElement():FocusOutEvent();
+	end
 end
 
 -- @param p: 
@@ -1052,6 +1050,10 @@ function UIElement:toolTipEvent(event)
 	end
 end
 
+function UIElement:PageElement()
+	return self._page_element;
+end
+
 function UIElement:setPageElement(page_elem)
 	self._page_element = page_elem;
 end
@@ -1112,7 +1114,20 @@ function UIElement:ClipRegion()
 end
 
 function UIElement:PageElementClipRegion()
-	if(self._page_element and self._page_element:IsClip()) then
-		return self._page_element:ClipRegion();
+	if(self:PageElement() and self:PageElement():IsClip()) then
+		return self:PageElement():ClipRegion();
 	end
 end
+
+function UIElement:IsInputMethodEnabled()
+	return self.InputMethodEnabled;
+end
+
+function UIElement:SetInputMethodEnabled(enabled)
+	self.InputMethodEnabled = enabled;
+	local window = self:GetWindow()
+	if(window and window~=self) then
+		window:SetInputMethodEnabled(enabled)
+	end
+end
+

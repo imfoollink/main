@@ -11,6 +11,8 @@ Elements.pe_container:RegisterAs("pe:container");
 ]]
 NPL.load("(gl)script/ide/System/Windows/mcml/Elements/pe_div.lua");
 NPL.load("(gl)script/ide/System/Windows/Controls/Canvas.lua");
+NPL.load("(gl)script/ide/System/Windows/mcml/PageElement.lua");
+local PageElement = commonlib.gettable("System.Windows.mcml.PageElement");
 local Canvas = commonlib.gettable("System.Windows.Controls.Canvas");
 
 local pe_container = commonlib.inherit(commonlib.gettable("System.Windows.mcml.Elements.pe_div"), commonlib.gettable("System.Windows.mcml.Elements.pe_container"));
@@ -28,11 +30,12 @@ function pe_container:LoadComponent(parentElem, parentLayout, style)
 		_this:SetParent(parentElem);
 	end
 
-	pe_container._super.LoadComponent(self, _this, parentLayout, style);
+	PageElement.LoadComponent(self, _this, parentLayout, style);
 	_this:ApplyCss(self:GetStyle());
 end
 
 function pe_container:OnLoadComponentBeforeChild(parentElem, parentLayout, css)
+	pe_container._super.OnLoadComponentBeforeChild(self, parentElem, parentLayout, css)
 end
 
 function pe_container:OnLoadComponentAfterChild(parentElem, parentLayout, css)

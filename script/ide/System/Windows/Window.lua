@@ -39,17 +39,21 @@ local Application = commonlib.gettable("System.Windows.Application");
 local UIElement = commonlib.gettable("System.Windows.UIElement");
 local KeyEvent = commonlib.gettable("System.Windows.KeyEvent");
 local MouseEvent = commonlib.gettable("System.Windows.MouseEvent");
+local FocusPolicy = commonlib.gettable("System.Core.Namespace.FocusPolicy");
 local Window = commonlib.inherit(commonlib.gettable("System.Windows.UIElement"), commonlib.gettable("System.Windows.Window"));
 
 Window:Property("Name", "Window");
 Window:Property({"AutoClearBackground", true, nil, "SetAutoClearBackground"});
 Window:Property({"CanDrag", false, auto=true});
 Window:Property({"Alignment", "_lt", auto=true});
+Window:Property({"InputMethodEnabled", true, "IsInputMethodEnabled", "SetInputMethodEnabled", auto=true});
+
 Window:Signal("urlChanged", function(url) end)
 
 function Window:ctor()
 	self.window = self;
 	self:setAttribute("WA_AlwaysShowToolTips", true);
+	self:setFocusPolicy(FocusPolicy.TabFocus);
 end
 
 -- show and bind to a new ParaUI control object to receive events from. 
@@ -236,10 +240,18 @@ function Window:create_sys(native_window, initializeWindow, destroyOldWindow)
 	end);
 	_this:SetScript("onkeydown", function()
 		local event = KeyEvent:init("keyPressEvent")
-		Application:sendEvent(self:focusWidget(), event);
+		
+		self:HandlePagePressKeyEvent(event);
+
+		if(not event:isAccepted()) then
+			Application:sendEvent(self:focusWidget(), event);
+		end
+
 		if(not event:isAccepted()) then
 			local context = SceneContextManager:GetCurrentContext();
-			context:handleKeyEvent(event);
+			if(context) then
+				context:handleKeyEvent(event);
+			end
 		end
 	end);
 	_this:SetScript("onkeyup", function()
@@ -251,6 +263,14 @@ function Window:create_sys(native_window, initializeWindow, destroyOldWindow)
 	_this:SetScript("onactivate", function()
 		local isActive = (param1 and param1>0);
 		self:handleActivateEvent(isActive);
+	end);
+	_this:SetScript("onfocusin", function()
+		self:handleActivateEvent(true);
+	end);
+	_this:SetScript("onfocusout", function()
+		if(self:focusWidget() and self:focusWidget():hasFocus()) then
+			self:handleActivateEvent(false);
+		end
 	end);
 	_this:SetScript("ondestroy", function()
 		self:handleDestroy_sys();
@@ -413,9 +433,16 @@ function Window:SetFocus_sys()
 			-- enable key focus only once
 			self.CanHaveFocus = true;
 			self.native_ui_obj:SetField("CanHaveFocus", self.CanHaveFocus); 
-			self.native_ui_obj:SetField("InputMethodEnabled", self.CanHaveFocus); 
+			self.native_ui_obj:SetField("InputMethodEnabled", self.CanHaveFocus and self:IsInputMethodEnabled()); 
 		end
 		self.native_ui_obj:Focus();
+	end
+end
+
+function Window:SetInputMethodEnabled(bEnabled)
+	self.InputMethodEnabled = bEnabled;
+	if(self.native_ui_obj) then
+		self.native_ui_obj:SetField("InputMethodEnabled", bEnabled==true); 
 	end
 end
 
@@ -560,4 +587,19 @@ end
 
 function Window:isEnabled()
 	return self.enabled;
+end
+
+function Window:Page()
+	if(self.layout) then
+		return self.layout:GetPage();
+	end
+end
+
+function Window:HandlePagePressKeyEvent(event)
+	local page = self:Page();
+	if(page) then
+		if(page:HandlKeyPressEvent(event:KeyName())) then
+			event:accept();
+		end
+	end
 end

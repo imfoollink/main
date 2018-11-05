@@ -63,6 +63,7 @@ local Overlay = commonlib.inherit(commonlib.gettable("System.Core.ToolBase"), co
 
 Overlay:Property("Name", "Overlay");
 Overlay:Property({"enabled", true, "isEnabled", auto=true});
+Overlay:Property({"visible", true, "IsVisible", "SetVisible"});
 Overlay:Property({"EnableZPass", true});
 Overlay:Property({"ZPassOpacity", 0.2, "GetZPassOpacity", "SetZPassOpacity", auto=true});
 Overlay:Property({"EnablePicking", true});
@@ -194,6 +195,26 @@ function Overlay:handleKeyEvent(event)
 	end
 end
 
+-- we prefer to use handleKeyEvent (key down event) for processing key strokes.
+function Overlay:handleKeyReleaseEvent(event)
+	if(self.children) then
+		local children = self.children;
+		local child = children:first();
+		while (child) do
+			if(child.handleKeyReleaseEvent) then
+				child:handleKeyReleaseEvent(event);
+			end
+			if(event:isAccepted()) then
+				break;
+			end
+			child = children:next(child);
+		end
+	end
+	if(not event:isAccepted()) then
+		self:event(event);
+	end
+end
+
 -- private: handle system ondraw message.
 function Overlay:handleRender()
 	local renderState = ParaScene.GetSceneState():GetField("RenderState", 0);
@@ -228,6 +249,19 @@ function Overlay:Destroy()
 		self.native_scene_obj = nil;
 	end
 	Overlay._super.Destroy(self);
+end
+
+function Overlay:SetVisible(bVisible)
+	if(self.visible ~= bVisible) then
+		self.visible = bVisible;
+		if(self.native_scene_obj) then
+			self.native_scene_obj:SetVisible(bVisible==true);
+		end
+	end
+end
+
+function Overlay:IsVisible()
+	return self.visible;
 end
 
 -- called whenever an event comes. Subclass can overwrite this function. 
@@ -318,7 +352,10 @@ end
 
 -- @param paintFuncName: should be "paintEvent", "paintPickingEvent", "paintZPassEvent", etc.
 function Overlay:DoPaintRecursive(painter, paintFuncName)
-	self:PushLocalTransform(painter);
+	if(not self:IsVisible()) then
+		return
+	end
+	self:BeginPaint(painter);
 	self[paintFuncName](self, painter);
 	if(self.children) then
 		local children = self.children;
@@ -329,6 +366,16 @@ function Overlay:DoPaintRecursive(painter, paintFuncName)
 			child = children:next(child);
 		end
 	end
+	self:EndPaint(painter)
+end
+
+-- virtual function: setup transform for this and child overlays
+function Overlay:BeginPaint(painter)
+	self:PushLocalTransform(painter);
+end
+
+-- virtual function: setup transform for this and child overlays
+function Overlay:EndPaint(painter)
 	self:PopLocalTransform(painter);
 end
 
@@ -418,6 +465,12 @@ end
 -- picking name from the last picking result.
 function Overlay:GetActivePickingName()
 	return OverlayPicking:GetActivePickingName();
+end
+
+-- this number is increased by 1 everytime picking buffer is redrawn, 
+-- this is useful to decide if a pickingName is valid or associated with the current picking frame number
+function Overlay:GetPickingFrameNumber()
+	return OverlayPicking:GetPickingFrameNumber();
 end
 
 -- set position using the current camera position in the scene. 

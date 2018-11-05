@@ -269,7 +269,7 @@ function SceneContextManager.OnKeyUpProc(nCode, appName, msg)
 	local context = self:GetCurrentContext();
 	if(context) then
 		local event = KeyEvent:init("keyReleaseEvent", msg.virtual_key);
-		context:handleKeyEvent(event);
+		context:handleKeyReleaseEvent(event);
 		if(event:isAccepted()) then
 			-- prevent any other hooks
 			return nil;

@@ -94,7 +94,7 @@ function pe_div:OnLoadComponentBeforeChild(parentElem, parentLayout, css)
 --		end
 --	end
 
-	if(not css.background and not css.background2) then
+	if(not css.background and not css.background2 and css["background-color"]~="#ffffff00") then
 		if(css["background-color"]) then
 			css.background = "Texture/whitedot.png";	
 		else
@@ -160,6 +160,8 @@ function pe_div:OnLoadComponentBeforeChild(parentElem, parentLayout, css)
 --			_this:SetBackgroundColor();
 --		end
 --	end
+
+	pe_div._super.OnLoadComponentBeforeChild(self, parentElem, parentLayout, css)	
 end
 
 function pe_div:OnBeforeChildLayout(layout)

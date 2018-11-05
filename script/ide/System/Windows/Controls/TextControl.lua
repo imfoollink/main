@@ -45,6 +45,7 @@ TextControl:Property({"AutoTabToSpaces", true, "IsAutoTabToSpaces", "SetAutoTabT
 TextControl:Property({"EmptyText", nil, "GetEmptyText", "SetEmptyText", auto=true})
 TextControl:Property({"language", nil, "Language", "SetLanguage", auto=true})
 
+
 --TextControl:Signal("SizeChanged",function(width,height) end);
 --TextControl:Signal("PositionChanged");
 
@@ -159,11 +160,17 @@ function TextControl:setReadOnly(bReadOnly)
 	end
 end
 
+function TextControl:PageElement()
+	return self.parent:PageElement();
+end
+
 -- virtual: 
 function TextControl:focusInEvent(event)
 	-- Application:inputMethod():show();
 	self:setCursorVisible(true);
 	self:setCursorBlinkPeriod(Application:cursorFlashTime());
+
+	TextControl._super.focusInEvent(self, event)
 end
 
 -- virtual: 
@@ -171,6 +178,8 @@ function TextControl:focusOutEvent(event)
 	-- Application:inputMethod():hide();
 	self:setCursorVisible(false);
 	self:setCursorBlinkPeriod(0);
+
+	TextControl._super.focusOutEvent(self, event)
 end
 
 function TextControl:setCursorVisible(visible)
@@ -1482,7 +1491,14 @@ function TextControl:xToPos(text, x, betweenOrOn)
 end
 
 function TextControl:cursorToX(text)
-	local text = text or self:GetCurrentLine().text;
+	if(text == nil) then
+		if(self:GetCurrentLine()) then
+			text = self:GetCurrentLine().text;
+		else
+			text = Unistring:new();
+		end
+	end
+	--local text = text or self:GetCurrentLine().text;
 	local x = text:cursorToX(self.cursorPos, self:GetFont());
 	return math.floor(x + 0.5);
 end
@@ -1808,4 +1824,3 @@ function TextControl:paintEvent(painter)
 		end
 	end
 end
-
