@@ -183,7 +183,7 @@ if(use_ffi) then
 		local name = ParaEngine.GetAttributeObject():GetField("GetModuleFileName");
 		if(not name) then
 			-- backward compatibility if "GetModuleFileName" not exist. 
-			name = "AwesomeTruck";
+			name = "ParaEngineClient";
 			local is_debugging = ParaEngine.GetAttributeObject():GetField("Is Debugging", false);
 			if(is_debugging) then
 				name = name.."_d";
