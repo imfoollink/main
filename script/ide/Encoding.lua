@@ -44,6 +44,17 @@ function Encoding.Utf16ToUtf8(text)
 	return text and ParaMisc.UTF16ToUTF8(text)
 end
 
+-- this may not be reliable, but works in most cases. It will convert to default and then back.
+function Encoding.DetectTextIsUtf8Encoding(text)
+	local defaultText = Encoding.Utf8ToDefault(text);
+	if(defaultText == text) then
+		return true;
+	elseif(Encoding.DefaultToUtf8(defaultText) == text) then
+		return true;
+	else
+		return false;
+	end
+end
 
 -- sort commar separated vector (CSV) string alphabetically
 -- @param fields: string such as "C,B,A", or a table containing string arrays such as {"C", "B", "A"}
@@ -90,6 +101,16 @@ function Encoding.EncodeHTMLInnerText(s)
 	s = string_gsub(s, "<", "&lt;");
 	s = string_gsub(s, ">", "&gt;");
 	-- s = string_gsub(s, "\"", "&quot;");
+	return s;
+end
+
+function Encoding.EncodeHTMLInnerTextWithSpace(s)
+	local s = tostring(s);
+	if(not s)then return end
+	s = string_gsub(s, "&", "&amp;");
+	s = string_gsub(s, "<", "&lt;");
+	s = string_gsub(s, ">", "&gt;");
+	s = string_gsub(s, "  ", " &#x20;");
 	return s;
 end
 

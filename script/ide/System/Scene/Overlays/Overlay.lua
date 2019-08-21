@@ -66,6 +66,7 @@ Overlay:Property({"enabled", true, "isEnabled", auto=true});
 Overlay:Property({"visible", true, "IsVisible", "SetVisible"});
 Overlay:Property({"EnableZPass", true});
 Overlay:Property({"ZPassOpacity", 0.2, "GetZPassOpacity", "SetZPassOpacity", auto=true});
+Overlay:Property({"zorder", nil, "GetZOrder", "SetZOrder"});
 Overlay:Property({"EnablePicking", true});
 -- this is usually the last system time tick that render function is called.
 Overlay:Property({"PickingRenderFrame", 0, auto=true});
@@ -84,10 +85,19 @@ function Overlay:ctor()
 	self.localTransform = Matrix4:new():identity();
 end
 
+local function compare_zorder_less(left, right)
+	return (left.zorder or 0) < (right.zorder or 0);
+end
+
 -- @param parent: if nil, we will create as root. 
 function Overlay:init(parent)
 	if(parent) then
+		local last = parent:GetChildren():last()
 		self:SetParent(parent);
+
+		if(last and not compare_zorder_less(last, self)) then
+			parent:SortChildren();
+		end
 	else
 		self:create_sys(nil);
 	end
@@ -148,6 +158,23 @@ function Overlay:SetRenderOrder(order)
 	end
 end
 
+-- zorder 
+function Overlay:SetZOrder(zorder)
+	if(self.zorder ~= zorder) then
+		self.zorder = zorder;
+		if(self.parent) then
+			self.parent:SortChildren();
+		end
+	end
+end
+
+function Overlay:GetZOrder()
+	return self.zorder or 0;
+end
+
+function Overlay:SortChildren()
+	self:GetChildren():sort(compare_zorder_less)
+end
 
 -- private: bind to native scene object.
 -- @param native_scene_obj: if nil, we will create one 

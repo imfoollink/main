@@ -9,6 +9,7 @@ NPL.load("(gl)script/ide/System/os/os.lua");
 echo(System.os.GetPlatform()=="win32");
 echo(System.os.args("bootstrapper", ""));
 echo(System.os.GetCurrentProcessId());
+echo(System.os.GetPCStats());
 ------------------------------------------------------------
 ]]
 NPL.load("(gl)script/ide/System/os/run.lua");
@@ -26,17 +27,27 @@ function os.GetPlatform()
 			return "ios";
 		elseif(platform == 2) then
 			return "android";
-		elseif(platform == 14) then
-			return "winrt";
 		elseif(platform == 5) then
 			return "linux";
+		elseif(platform == 8) then
+			return "mac";
 		elseif(platform == 13) then
 			return "wp8";
+		elseif(platform == 14) then
+			return "winrt";
 		elseif(platform == 0) then
 			return "unknown";
 		end
 	end
 	return os.platform;
+end
+
+-- return true if it is 64 bits system. 
+function os.Is64BitsSystem()
+	if(os.Is64BitsSystem_ == nil) then
+		os.Is64BitsSystem_ = ParaEngine.GetAttributeObject():GetField("Is64BitsSystem", false);
+	end
+	return os.Is64BitsSystem_;
 end
 
 -- get command line argument
@@ -79,4 +90,39 @@ function os.GetWritablePath()
 	return ParaIO.GetWritablePath();
 end
 
+local pc_stats;
+-- get a table containing all kinds of stats for this computer. 
+-- @return {videocard, os, memory, ps, vs}
+function os.GetPCStats()
+	if(not pc_stats) then
+		pc_stats = {};
+		pc_stats.videocard = ParaEngine.GetStats(0);
+		pc_stats.os = ParaEngine.GetStats(1);
+		
+		local att = ParaEngine.GetAttributeObject();
+		local sysInfoStr = att:GetField("SystemInfoString", "");
+		local name, value, line;
+		for line in sysInfoStr:gmatch("[^\r\n]+") do
+			name,value = line:match("^(.*):(.*)$");
+			if(name == "TotalPhysicalMemory") then
+				value = tonumber(value)/1024;
+				pc_stats.memory = value;
+			else
+				-- TODO: other OS settings
+			end
+		end
+		pc_stats.ps = att:GetField("PixelShaderVersion", 0);
+		pc_stats.vs = att:GetField("VertexShaderVersion", 0);
 
+		-- uncomment to test low shader 
+		--pc_stats.ps = 1;
+		--pc_stats.memory = 300
+
+		local att = ParaEngine.GetAttributeObject();
+		pc_stats.IsFullScreenMode = att:GetField("IsFullScreenMode", false);
+		pc_stats.resolution_x = tonumber(att:GetDynamicField("ScreenWidth", 1020)) or 1020;
+		pc_stats.resolution_y = tonumber(att:GetDynamicField("ScreenHeight", 680)) or 680;
+		pc_stats.IsWebBrowser = System.options.IsWebBrowser;
+	end
+	return pc_stats;
+end

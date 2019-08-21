@@ -260,14 +260,13 @@ function ToolBase.Connect(sender, signal, receiver, slot, connection_type)
 	if(not slot and type(receiver) == "function") then
 		slot = receiver;
 		receiver = nil;
-		connection_type = nil;
 	end
 	if(not signal) then
 		LOG.std(nil, "warn", "ToolBase:Connect", "invalid null parameter");
 		return;
 	end
 	
-	if(type(slot) == "string") then
+	if(type(slot) == "string" and receiver) then
 		slot = receiver[slot];
 	end
 	if(type(slot)~="function") then
@@ -426,9 +425,14 @@ function ToolBase.Activate(sender, signal, ...)
 	local connection = sender:GetConnection(signal);
 	if(connection) then
 		local synapse = connection:first();
+		local synapse_next;
 		while (synapse) do
+			-- fixed: this will allow synapse:Activate() to remove the current signal
+			-- however, it does not prevent other deletion cases inside activate call
+			-- it is not recommended to call Disconnect inside current signal. 
+			synapse_next = connection:next(synapse);
 			synapse:Activate(...);
-			synapse = connection:next(synapse);
+			synapse = synapse_next;
 		end
 	end
 end
